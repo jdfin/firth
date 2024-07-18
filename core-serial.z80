@@ -16,8 +16,55 @@ initSerial:
     ld HL, LINE_BUFSIZE
     ld (lineBufSize), HL
 
+.if MC6850_ACIA
+
     ld A,rts_low
     out ($80),A                             ; initialise acia
+
+.else if Z80_SIO
+
+; reset channel
+    ld A,0x18
+    out (IO_CTRL),A
+
+; WR4
+; 01------ 16x
+; 10------ 32x
+; 11------ 64x
+; ----01-- 1 stop
+; ----10-- 1.5 stop
+; ----11-- 2 stop
+    ld A,4
+    out (IO_CTRL),A
+    ld A,10000100b
+    out (IO_CTRL),A
+
+; WR3
+; 11------ rx 8 bits/char
+; -------1 rx enable
+    ld A,3
+    out (IO_CTRL),A
+    ld A,11000001b
+    out (IO_CTRL),A
+
+; WR5
+; -11----- tx 8 bits/chr
+; ----1--- tx enable
+    ld A,5
+    out (IO_CTRL),A
+    ld A,01101000b
+    out (IO_CTRL),A
+
+; WR1
+; ---11--- rx intr on char
+; ------1- tx intr enable
+    ld A,1
+    out (IO_CTRL),A
+    ld A,00011000b
+    out (IO_CTRL),A
+
+.endif
+
     im 1
     ei
     ret
@@ -26,10 +73,10 @@ serialIn:
     push AF
     push HL
 
-    in A,($80)
+    in A,(IO_CTRL)
     and $01             ; Check if interupt due to read lineBuf full
     _if nz
-        in A,($81)
+        in A,(IO_DATA)
         push AF
         ld A,(serBufUsed)
         cp SER_BUFSIZE     ; If full then ignore
@@ -49,11 +96,16 @@ serialIn:
             ld A,(serBufUsed)
             inc A
             ld (serBufUsed),A
+.if MC6850_ACIA
             cp SER_FULLSIZE
             _if nc
                 ld A,RTS_HIGH
                 out ($80),A
             _endif
+.else if Z80_SIO
+            ld A,00111000b ; return from interrupt
+            out (IO_CTRL),A
+.endif
         _endif
     _endif
     pop HL
@@ -96,11 +148,16 @@ getc:
     ld A,(serBufUsed)
     dec A
     ld (serBufUsed),A
-    cp SER_EMPTYSIZE
-    _if c
-        ld A,RTS_LOW
-        out ($80),A
-    _endif
+
+    ; can't get this to nest correctly
+    ;.if MC6850_ACIA
+    ;cp SER_EMPTYSIZE
+    ;_if c
+    ;    ld A,RTS_LOW
+    ;    out ($80),A
+    ;_endif
+    ;.endif
+
     ld A,(HL)
     ei
     pop HL
@@ -115,12 +172,16 @@ getc:
 putc:
     push     AF              ; STORE character
     _do
-        in A,($80)         ; Status byte
+        in A,(IO_CTRL)      ; Status byte
+.if MC6850_ACIA
         bit 1,A             ; Set Zero flag if still transmitting character
+.else if Z80_SIO
+        bit 2,A             ; Set Zero flag if still transmitting character
+.endif
     _until nz
     _enddo
     pop AF              ; Retrieve character
-    out ($81),A         ; Output the character
+    out (IO_DATA),A     ; Output the character
     ret
 
 inputReady:

@@ -1,6 +1,8 @@
 .engine mycomputer
 
     TESTMODE equ 0
+    MC6850_ACIA equ 0
+    Z80_PIO equ 1
     
         .include "constants.z80"
         .include "macros-compiler.z80"
@@ -79,4 +81,4 @@
         .include "variables.z80"
     
     START_USER:                                 ; user allocated data starts here
-    
+

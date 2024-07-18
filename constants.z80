@@ -1,6 +1,6 @@
 MEM_SIZE        EQU     $10000 ; MEM is 64K
-ROM_SIZE        EQU     $2000 ; ROM is 8K
-RAM_SIZE        EQU     MEM_SIZE - ROM_SIZE ; RAM is 64K - 8K
+ROM_SIZE        EQU     $8000 ; ROM is 32K
+RAM_SIZE        EQU     MEM_SIZE - ROM_SIZE ; RAM is 64K - 32K
 
 BM              EQU     0 ; bottom of ROM memory
 EM              EQU     BM + MEM_SIZE 
@@ -20,8 +20,17 @@ SER_FULLSIZE    equ     30H
 SER_EMPTYSIZE   equ     5
 LINE_BUFSIZE    equ     128
 
+.if MC6850_ACIA
+
 IO_DATA         equ     $81
 IO_CTRL         equ     $80
+
+.else if Z80_SIO
+
+IO_DATA         equ     $80
+IO_CTRL         equ     $82
+
+.endif
 
 IMMED           equ     $80
 HIDE            equ     $40
@@ -34,5 +43,14 @@ POP_HL_OPCODE   equ     $E1
 RET_OPCODE      equ     $C9
 RST08_OPCODE    equ     $CF                 ; call enter
 
+.if MC6850_ACIA
+
+; 1------- rx intr enabled
+; -10----- rts hi, tx intr disabled
+; -00----- rts lo, tx intr disabled
+; ---101-- 8+1
+; ------10 64x clock
 RTS_HIGH        equ     0D6H                ; 11010110
 RTS_LOW         equ     096H                ; 10010110
+
+.endif

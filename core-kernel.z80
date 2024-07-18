@@ -20,8 +20,11 @@ initForth:
     ld (var_latest), HL
     ld (var_latest_str), HL
 
+.if MC6850_ACIA
     ld A,rts_low
     out ($80),A                             ; initialise acia
+.endif
+
     im 1
     ei
     ret
